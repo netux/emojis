@@ -6,10 +6,11 @@ from datetime import datetime
 import requests
 
 GEMOJI_RELEASE_URL = 'https://api.github.com/repos/github/gemoji/releases'
+GEMOJI_COMMITS_URL = 'https://api.github.com/repos/github/gemoji/commits'
 GEMOJI_JSON_DB_URL = 'https://raw.githubusercontent.com/github/gemoji/{tag}/db/emoji.json'
 
 
-def get_lastest_release():
+def get_latest_release():
     req = requests.get(GEMOJI_RELEASE_URL)
     req.raise_for_status()
 
@@ -19,9 +20,23 @@ def get_lastest_release():
 
     return latest['tag_name'], latest['name']
 
+def get_latest_commit():
+    req = requests.get(GEMOJI_COMMITS_URL)
+    req.raise_for_status()
 
-def generate(path, dbname):
-    tag, name = get_lastest_release()
+    data = req.json()
+
+    latest = data[0]
+
+    return latest['sha'], latest['commit']['message']
+
+
+def generate(path, dbname, release):
+    if release:
+        tag, name = get_latest_release()
+    else:
+        tag, name = get_latest_commit()
+        name = 'commit "' + name + '" (sha ' + tag + ') of gemoji'
 
     req = requests.get(GEMOJI_JSON_DB_URL.format(tag=tag))
     req.raise_for_status()
@@ -59,6 +74,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generates the Emoji database.')
     parser.add_argument('--dir', default='.', help='Database location')
     parser.add_argument('--dbname', default='db.py', help='Database location')
+    parser_release_group = parser.add_mutually_exclusive_group()
+    parser_release_group.add_argument('--release', action='store_true', dest='use_release', help='Use latest release')
+    parser_release_group.add_argument('--no-release', action='store_false', dest='use_release', help='Use latest release')
     args = parser.parse_args()
 
-    generate(args.dir, args.dbname)
+    print(args) # TODO(netux): remove debug log
+
+    generate(args.dir, args.dbname, args.use_release)
